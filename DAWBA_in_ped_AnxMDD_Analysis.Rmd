@@ -1,0 +1,466 @@
+---
+title: "DAWBA Project"
+author: "Chase A., Paia A., Parmis K."
+date: "2023-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+required_Packages_Install <- c("stringr", "dplyr", "tidyverse",
+                              "ggplot2","hrbrthemes", "gdtools",
+                              "ggpubr", "ggExtra", "ggMarginal",
+                              "patchwork","psych","scales",
+                              "lm.beta", "multcomp", "compute.es")
+                                 
+
+for(Package in required_Packages_Install){
+  if(!require(Package,character.only = TRUE)) { 
+    install.packages(Package, dependencies=TRUE)
+  }
+  library(Package,character.only = TRUE)
+}
+```
+
+## **Set Working Directory**
+
+```{r rootdir}
+wd <- getwd()
+rootdir <- (sprintf ('%s', wd))
+read.csv(sprintf ('%s/_data.csv', wd))
+```
+
+## **Load Data Sets**
+
+```{r readcsv}
+dawba <- read_csv('DAWBA_data.csv')
+ksads <- read_csv('K-SADS_data.csv')
+pars <- read_csv('PARS_data.csv')
+scared <- read_csv ('SCARED_data.csv')
+mfq <- read_csv ('MFQ_data.csv')
+dawba.scared <- read_csv('DAWBASCARED_data.csv')
+dawba.mfq <- read_csv('DAWBAMFQ_data.csv')
+dawba.pars <- read_csv('DAWBAPARS_data.csv')
+
+ksads <- ksads %>% drop_na(SDAN)
+pars <- pars %>% drop_na(SDAN)
+scared <- scared %>% drop_na(SDAN)
+mfq <- mfq %>% drop_na(SDAN)
+```
+
+### **Merge Data Frames**
+
+```{r}
+# Merge df
+
+df_long<- full_join(dawba, scared, by=SDAN)
+df_long <- full_join(df_long, mfq, by=SDAN)
+df_long <- full_join(df_long, pars, by=SDAN)
+df_long <- full_join(df_long, ksads, by=SDAN)
+```
+
+# Generate Composite Scores
+```{r}
+# SCARED-C and SCARED-P Average Score 
+dawba.scared$cp_scared <- (dawba.scared$scared_c + dawba.scared$scared_p)/2
+df_long$cp_scared <- (df_long$scared_c + df_long$scared_p)/2
+
+# MFQ-C and MFQ-P Average Score 
+dawba.mfq$cp_mfq_tot <- (dawba.mfq$mfq_p + dawba.mfq$mfq_c)/2
+
+```
+
+
+### ** Generate Wide Formatted Data Frames
+```{r}
+# Converting from long to wide
+df_wide <- pivot_wider(data_long, 
+                       names_from = "intervals", 
+                       values_from = c("SDAN", "DAWBA_genaband", "DAWBA_sepaband", "DAWBA_sophband", 
+                                       "comp_dawba_depression_band", "pars_score", "scared_p", "scared_c",                                              "cp_scared", "mfq_tot_p", "mfq_tot_c"))
+                                       
+print(df_wide)
+
+```
+
+
+# Generate Composite Scores
+```{r}
+# CP_SCARED difference scores (pre-treatment, post-treatment)
+df_wide$cp_scared_diffscore <- df_wide$cp_scared_cbt12 - df_wide$cp_scared_baseline
+
+# PARS difference scores 
+df_wide$pars_diffscore <- df_wide$pars_score_cbt12 - df_wide$pars_score_baseline
+
+```
+
+
+## **1a and 1b – Self-Report Measures: SCARED-CP and MFQ-CP**
+
+1a. linear regression assessing DAWBA band scores for anxiety disorders:
+  - Generalized Anxiety Disorder = GAD (DAWBA_genaband)
+  - Separation Anxiety Disorder = Sep AD  (DAWBA_sepaband)
+  - Social Phobia Disorder = Soph (DAWBA_sophband)
+
+### *Generalized Anxiety Band Score* 
+```{r}
+# Generalized Anxiety 
+gadModel <- lm(cp_scared ~ DAWBA_genaband, data = dawba.scared)
+summary(gadModel)
+anova(gadModel)
+gadModel_coef <- coef(gadModel) # Extract coefficients
+cat("Coefficients:\n")
+print(gadModel_coef)
+gad_ci <- confint(gadModel) # Get CI
+cat("\nConfidence Intervals for Coefficients:\n")
+print(gad_ci)
+
+# plot (Fig.1a)
+ggplot(dawba.scared, aes(x = DAWBA_genaband, y = cp_scared)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA GAD Band Score & SCARED-CP') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA GAD Band Score') + ylab('SCARED-CP Average Score') +
+  theme(plot.title = element_text(face="bold"))
+```
+
+### *Separation Anxiety Band Score* 
+```{r}
+# Separation Anxiety 
+sepModel <- lm(cp_scared ~ DAWBA_sepaband, data = dawba.scared)
+summary(sepModel)
+anova(sepModel)
+sepModel_coef <- coef(sepModel) # Extract coefficients
+cat("Coefficients:\n")
+print(sepModel_coef)
+sep_ci <- confint(sepModel) # Get CI
+cat("\nConfidence Intervals for Coefficients:\n")
+print(sep_ci)
+
+# plot (Fig.1b)
+ggplot(dawba.scared, aes(x = DAWBA_sepaband, y = cp_scared)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Sep AD Band Score & SCARED-CP') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Sep AD Band Score') + ylab('SCARED-CP Average Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+### *Social Phobia Band Score* 
+```{r}
+# Social Phobia
+sophModel <- lm(cp_scared ~ DAWBA_sophband, data = dawba.scared)
+summary(sophModel)
+anova(sophModel)
+sophModel_coef <- coef(sophModel) # Extract coefficients
+cat("Coefficients:\n")
+print(sophModel_coef)
+soph_ci <- confint(sophModel) # Get CI
+cat("\nConfidence Intervals for Coefficients:\n")
+print(soph_ci)
+
+# plot (Fig.1c)
+ggplot(dawba.scared, aes(x = DAWBA_sophband, y = cp_scared)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Soph AD Band Score & SCARED-CP') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Soph AD Band Score') + ylab('SCARED-CP Average Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+1b. linear regression assessing DAWBA band scores for MDD:
+Major Depressive Disorder (comp_dawba_depression_band)
+
+```{r}
+## MDD Band Score Predicting MFQ-CP
+# Create the linear regression
+mddModel <- lm(cp_mfq_tot ~ comp_dawba_depression_band, data = dawba.mfq)
+summary(mddModel)
+beta(mddModel)
+exp(coef(mddModel)) # Get Odds ratio for predictor
+exp(confint(mddModel)) # Get CI
+
+# Plot (Fig.2)
+dawba.mfq$Participant_Type <- factor(dawba.mfq$Participant_Type, levels = c("Depressed", "Healthy"))
+ggplot(dawba.mfq, aes(x = comp_dawba_depression_band, y = cp_mfq_tot)) +
+  geom_point(aes(color = Participant_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA MDD Band Score & MFQ-CP') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA MDD Band Score') + ylab('MFQ-CP Average Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+## **1C – Scared-CP Across Treatment**
+
+### *Generalized Anxiety* 
+```{r}
+## GAD Band Score predicting SCARED-CP across treatment (SCARED-CP difference score)
+# Create the linear regression
+gadModel <- lm(cp_scared_diffscore ~ DAWBA_genaband, data = df_wide)
+summary(gadModel) 
+etaSquared(gadModel)
+
+model_coef <- coef(gadModel) # Extract coefficients
+cat("Coefficients:\n")
+print(model_coef)
+conf_interval <- confint(gadModel) # Get CI 
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+
+# Plot
+as.factor(df_wide$Subject_Type)
+factor(df_wide$Subject_Type, c("Anxiety", "HV Child"))
+ggplot(df_wide, aes(x = DAWBA_genaband, y = cp_scared_diffscore)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA GAD Band Score & SCARED-CP Difference Score') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA GAD Band Score') + ylab('SCARED-cp Difference Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+### *Separation Anxiety*
+```{r}
+## Sep AD Band Score predicting SCARED-CP across treatment (SCARED-CP difference score)
+# Create the linear regression
+sepModel <- lm(cp_scared_diffscore ~ DAWBA_sepabandd, data = df_wide)
+summary(sepModel) 
+etaSquared(sepModel)
+
+model_coef <- coef(sepModel) # Extract coefficients
+cat("Coefficients:\n")
+print(model_coef)
+conf_interval <- confint(sepModel)# Get CI
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+# Plot
+as.factor(df_wide$Subject_Type)
+factor(df_wide$Subject_Type, c("Anxiety", "HV Child"))
+ggplot(df_wide, aes(x = DAWBA_sepabandd, y = cp_scared_diffscore)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Sep AD Band Score & SCARED-CP Difference Score') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Sep AD Band Score') + ylab('SCARED-CP Difference Score') +
+  theme(plot.title = element_text(face="bold"))
+
+
+
+```
+
+
+### *Social Phobia*
+```{r}
+## SoPh Band Score predicting SCARED-CP across treatment (dSCARED-CP difference score)
+# Create the linear regression
+sophModel <- lm(cp_scared_diffscore ~ DAWBA_sophband, data = df_wide)
+summary(sophModel) 
+etaSquared(sophModel)
+
+model_coef <- coef(sophModel) # Extract coefficients
+cat("Coefficients:\n")
+print(model_coef)
+conf_interval <- confint(sophModel) # Get CI
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+
+# Plot 
+as.factor(df_wide$Subject_Type)
+factor(df_wide$Subject_Type, c("Anxiety", "HV Child"))
+ggplot(df_wide, aes(x = DAWBA_sophband, y = cp_scared_diffscore)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Soph AD Band Score & SCARED-CP Difference Score') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Soph AD Band Score') + ylab('SCARED-CP Difference Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+## **2a – Clinician-Report Measure: PARS**
+
+### *PARS & DAWBA GAD Band Score*
+```{r}
+# PARS-GAD
+mainModel <- lm(pars_score ~ DAWBA_genaband, data = dawba.pars)
+summary(mainModel)
+
+model_coef <- coef(mainModel)# Extract coefficients
+conf_interval <- confint(mainModel)# Get CI
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+
+# Plot (Fig.4a)
+as.factor(dawba.pars$Subject_Type)
+ggplot(dawba.pars, aes(x = DAWBA_genaband, y = pars_score)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA GAD Band Score & PARS') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA GAD Band Score') + ylab('PARS Score') +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+### *PARS & DAWBA SepAnx Band Score*
+
+```{r}
+# PARS-Sep AD
+mainModel <- lm(pars_score ~ DAWBA_sepabandd * Subject_Type, data = dawba.pars)
+summary(mainModel)
+mainModel <- lm(pars_score ~ DAWBA_sepabandd, data = dawba.pars)
+summary(mainModel)
+
+model_coef <- coef(mainModel)# Extract coefficients
+conf_interval <- confint(mainModel)# Get CI
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+
+# Plot (Fig.4b)
+as.factor(dawba.pars$Subject_Type)
+ggplot(dawba.pars, aes(x = DAWBA_sepabandd, y = pars_score)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Sep AD Band Score & PARS') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Sep AD Band Score') + ylab('PARS Score') +
+  theme(plot.title = element_text(face="bold"))
+
+
+```
+
+### *PARS & DAWBA SocPhob Band Score*
+
+```{r}
+# PARS-SoPh
+mainModel <- lm(pars_score ~ DAWBA_sophband * Subject_Type, data = dawba.pars)
+summary(mainModel)
+mainModel <- lm(pars_score ~ DAWBA_sophband, data = dawba.pars)
+summary(mainModel)
+model_coef <- coef(mainModel)# Extract coefficients
+conf_interval <- confint(mainModel)# Get CI
+
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+# Plot (Fig.4c)
+as.factor(dawba.pars$Subject_Type)
+ggplot(dawba.pars, aes(x = DAWBA_sophband, y = pars_score)) +
+  geom_point(aes(color = Subject_Type), shape = 1, stroke = 1) +
+  geom_smooth(method = lm, color = 'black') +
+  ggtitle('DAWBA Social AD Band Score & PARS') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab('DAWBA Social AD Band Score') + ylab('PARS Score') +
+  theme(plot.title = element_text(face="bold"))
+
+
+```
+
+## **2b – PARS Across Treatment**
+
+```{r}
+### PARS Across Treatment:  post-treatment (CBT 12 or 8) - pre-treatment (baseline)
+
+# Create the linear regression
+gadModel <- lm(pars_diffscore ~ DAWBA_genaband, data = df_wide) 
+# Review the results
+summary(gadModel) 
+
+model_coef <- coef(gadModel)# Extract coefficients
+conf_interval <- confint(gadModel)# Get CI
+
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+```
+
+
+```{r}
+# Create the linear regression
+sepModel = lm(pars_diffscore ~ DAWBA_sepabandd, data = df_wide) 
+summary(sepModel) 
+
+model_coef <- coef(sepModel)# Extract coefficients
+conf_interval <- confint(sepModel)# Get CI
+
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+```
+
+
+```{r}
+# Create the linear regression
+sophModel = lm(pars_diffscore ~ DAWBA_sophband, data = df_wide) 
+
+summary(sophModel) 
+
+model_coef <- coef(sophModel)# Extract coefficients
+conf_interval <- confint(sophModel)# Get CI
+
+cat("Coefficients:\n")
+print(model_coef)
+cat("\nConfidence Intervals for Coefficients:\n")
+print(conf_interval)
+
+```
+
+*Fig.3*
+```{r}
+df_long$SDAN <- as.character(df_long$SDAN)
+# Create plot
+ggplot(df_long, aes(x = Interval, y = cp_scared, group = SDAN, color = SDAN)) +
+  geom_line(data = df_long[!is.na(df_long$cp_scared),]) +
+  geom_point() +
+  labs(x = "Interval", y = "SCARED-CP Score", title = "SCARED-CP Across Treatment") +
+  theme_set(theme_minimal()) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5), legend.position = "none") 
+
+```
+
+
+*Fig. 5*
+```{r}
+df_long$SDAN <- as.character(df_long$SDAN)
+# Create plot
+ggplot(df_long, aes(x = Interval, y = pars_score, group = SDAN, color = SDAN)) +
+  geom_line(data = df_long[!is.na(dflong$pars_score),]) +
+  geom_point() +
+  labs(x = "Interval", y = "PARS Score", title = "PARS Across Treatment") +
+  theme_set(theme_minimal()) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5), legend.position = "none") 
+
+
+```
+
+
+
