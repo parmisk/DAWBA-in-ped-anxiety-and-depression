@@ -1,7 +1,6 @@
 ---
 title: "DAWBA Project"
 author: "Chase A., Paia A., Parmis K."
-date: "2023-06-17"
 output: html_document
 ---
 
